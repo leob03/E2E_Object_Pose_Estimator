@@ -1,0 +1,6 @@
+pytorch
+numpy
+scipy
+trimesh
+pyrender
+pyquaternion
