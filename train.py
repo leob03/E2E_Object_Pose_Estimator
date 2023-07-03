@@ -95,7 +95,7 @@ def main():
       print('Time {0}'.format(time.strftime("%Hh %Mm %Ss", time.gmtime(time.time() - st_time)) + \
                                     ', ' + 'Epoch %02d' % epoch + ', ' + 'Training finished' + f' , with mean training loss {np.array(train_loss).mean()}'))    
   
-  torch.save(posecnn_model.state_dict(), os.path.join(PATH, "posecnn_model2.pth"))
+  torch.save(posecnn_model.state_dict(), os.path.join(PATH, "posecnn_model.pth"))
       
   plt.title("Training loss history")
   plt.xlabel(f"Iteration (x {log_period})")
