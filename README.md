@@ -1,6 +1,8 @@
 # End to End Object Pose Estimator
 Implementation of an end-to-end object pose estimator, based on PoseCNN, which consists of two stages - feature extraction with a backbone network and pose estimation represented by instance segmentation, 3D translation estimation, and 3D rotation estimation.
 
+![](./img/results.gif)
+
 # Contents
 
 [***Objective***](https://github.com/leob03/E2E_Object_Pose_Estimator#objective)
@@ -27,19 +29,32 @@ We will train it to estimate the pose of a set of object classes and evaluate th
 
 # Concepts
 
-* **Encoder-Decoder architecture**. Typically, a model that generates sequences will use an Encoder to encode the input into a fixed form and a Decoder to decode it, word by word, into a sequence.
+* **Semantic Labeling**. In order to detect objects in images, we resort to semantic labeling, where the network classifies each image pixel into an
+object class. Compared to recent 6D pose estimation methods that resort to object detection with bounding boxes, semantic labeling provides richer information about the objects and handles occlusions better.
 
-* **Attention**. The use of Attention networks is widespread in deep learning, and with good reason. This is a way for a model to choose only those parts of the encoding that it thinks is relevant to the task at hand. The same mechanism you see employed here can be used in any model where the Encoder's output has multiple points in space or time. In image captioning, you consider some pixels more important than others. In sequence to sequence tasks like machine translation, you consider some words more important than others.
+* **3D Translation Estimation**. 3D translation estimation refers to the task of determining the spatial translation of an object in a three-dimensional coordinate system. It involves predicting the displacement or movement of an object from a reference position to its current position in 3D space. This dispacement can be represented by a translation vector that typically consists of three values representing the displacements along the x, y, and z axes.
 
-* **Transfer Learning**. This is when you borrow from an existing model by using parts of it in a new model. This is almost always better than training a new model from scratch (i.e., knowing nothing). As you will see, you can always fine-tune this second-hand knowledge to the specific task at hand. Using pretrained word embeddings is a dumb but valid example. For our image captioning problem, we will use a pretrained Encoder, and then fine-tune it as needed.
-
+* **3D Rotation Regression**. 3D rotation regression refers to the task of estimating the rotational orientation or pose of an object in three-dimensional space. It involves predicting the rotation parameters that describe the object's orientation relative to a reference position. The rotation parameters are typically represented as quaternions, Euler angles, or rotation matrices, which capture the object's orientation along the x, y, and z axes.
+  
 # Overview
 
-The pipeline for the project looks as follows:
+This architecture is designed to take an RGB color image as input and produce a [6 degrees-of-freedom pose](https://en.wikipedia.org/wiki/Six_degrees_of_freedom) estimate for each instance of an object within the scene from which the image was taken. To do this, PoseCNN uses 5 operations within the architecture descried in the next pipeline:
 
 - The **input** is a dataset of images and 5 sentence descriptions that were collected with Amazon Mechanical Turk. We will use the 2014 release of the [COCO Captions dataset](http://cocodataset.org/) which has become the standard testbed for image captioning. The dataset consists of 80,000 training images and 40,000 validation images, each annotated with 5 captions.
 - In the **training stage**, the images are fed as input to RNN (or LSTM/LSTM with attention depending on the model) and the RNN is asked to predict the words of the sentence, conditioned on the current word and previous context as mediated by the hidden layers of the neural network. In this stage, the parameters of the networks are trained with backpropagation.
 - In the **prediction stage**, a witheld set of images is passed to RNN and the RNN generates the sentence one word at a time. The code also includes utilities for visualizing the results.
+
+- First, a backbone convolutional **feature extraction** network is used to produce a tensor representing learned features from the input image.
+- Second, the extracted features are processed by an **embedding branch** to reduce the spatial resolution and memory overhead for downstream layers.
+- Third, an **instance segmentation branch** uses the embedded features to identify regions in the image corresponding to each object instance (regions of interest).
+- Fourth, the translations for each object instance are estimated using a **translation branch** along with the embedded features.
+- Finally, a **rotation branch** uses the embedded features to estimate a rotation, in the form of a [quaternion](https://en.wikipedia.org/wiki/Quaternions_and_spatial_rotation), for each region of interest.
+
+The architecture is shown in more detail from Figure 2 of the [PoseCNN paper](https://arxiv.org/abs/1711.00199):
+
+![architecture](https://deeprob.org/assets/images/posecnn_arch.png)
+
+Now, we will implement a variant of this architecture that performs each of the 5 operations using PyTorch and data from our `PROPSPoseDataset`.
 
 # Dependencies
 **Python 3.10**, modern version of **PyTorch**, **numpy** and **scipy** module. Most of these are okay to install with **pip**. To install all dependencies at once, run the command `pip install -r requirements.txt`
@@ -50,94 +65,59 @@ I only tested this code with Ubuntu 20.04, but I tried to make it as generic as 
 # Getting started
 
 1. **Get the code.** `$ git clone` the repo and install the Python dependencies
-2. **Train the models.** Run the training `$ python train_rnn.py` or `$ python train_lstm.py` or `$ python train_lstm_attention.py`, depending on the model that you want to try (see many additional argument settings inside the file) and wait. You'll see that the learning code writes checkpoints into `cv/` and periodically print its status. 
-3. **Evaluate the models checkpoints and Visualize the predictions.** To evaluate a checkpoint from `checkpoints/`, run the scripts `$ python test_rnn.py` or `$ python test_lstm.py` or `$ python test_lstm_attention.py` and pass it the path to a checkpoint ( by adding --checkpoint /path/to/the/checkpoint after your python command).
+2. **Train the models.** Run the training `$ train.py` and wait. You'll see that the learning code writes checkpoints into `cv/` and periodically print its status. 
+3. **Evaluate the models checkpoints and Visualize the predictions.** To evaluate a checkpoint from `checkpoints/`, run the scripts `$ python test.py` and pass it the path to a checkpoint ( by adding --checkpoint /path/to/the/checkpoint after your python command).
 
 # Deeper dive into the code
 
-### COCO Captions
+### PROPS Pose Dataset
 
-For this project we used the 2014 release of the [COCO Captions dataset](http://cocodataset.org/) which has become the standard testbed for image captioning. The dataset consists of 80,000 training images and 40,000 validation images, each annotated with 5 captions written by workers on Amazon Mechanical Turk.
+In order to train and evaluate object pose estimation models, we need a dataset where each image is annotated with a *set* of *pose labels*, where each pose label gives the 3DoF position and 3DoF orientation of some object in the image.
 
-We have preprocessed the data and saved them into a serialized data file. It contains 10,000 image-caption pairs for training and 500 for testing. The images have been downsampled to 112x112 for computation efficiency and captions are tokenized and numericalized, clamped to 15 words. You can download the file named `coco.pt` (378MB) with the link below and run some useful stats.
+We will use the [PROPS Pose](https://deeprob.org/datasets/props-pose/) dataset, which provides annotations of this form. 
+Our PROPS Detection dataset is much smaller than typical benchmarking pose estimation datasets, and thus easier to manage.
+PROPS comprises annotated bounding boxes for 10 object classes:
+`["master_chef_can", "cracker_box", "sugar_box", "tomato_soup_can", "mustard_bottle", "tuna_fish_can", "gelatin_box", "potted_meat_can", "mug", "large_marker"]`.
+The choice of these objects is inspired by the [YCB object and Model set](https://ieeexplore.ieee.org/document/7251504) commonly used in robotic perception models.
 
-We used RegNet-X 400MF model to extract features for the images. A few notes on the caption preprocessing:
+We create a [`PyTorch Dataset`](https://pytorch.org/docs/stable/data.html#torch.utils.data.Dataset) class named `PROPSPoseDataset` in `utils/PROPSPoseDataset.py` that will download the PROPS Pose dataset. 
 
-Dealing with strings is inefficient, so we will work with an encoded version of the captions. Each word is assigned an integer ID, allowing us to represent a caption by a sequence of integers. The mapping between integer IDs and words is saved in an entry named `vocab` (both `idx_to_token` and `token_to_idx`), and we use the function `decode_captions` from `a5_helper.py` to convert tensors of integer IDs back into strings.
+This dataset will format each sample from the dataset as a dictionary containing the following keys:
 
-There are a couple special tokens that we add to the vocabulary. We prepend a special `<START>` token and append an `<END>` token to the beginning and end of each caption respectively. Rare words are replaced with a special `<UNK>` token (for "unknown"). In addition, since we want to train with minibatches containing captions of different lengths, we pad short captions with a special `<NULL>` token after the `<END>` token and don't compute loss or gradient for `<NULL>` tokens. 
+ - 'rgb': a numpy float32 array of shape (3, 480, 640) scaled to range [0,1]
+ - 'depth': a numpy int32 array of shape (1, 480, 640) in (mm)
+ - 'objs_id': a numpy uint8 array of shape (10,) containing integer ids for visible objects (1-10) and invisible objects (0)
+ - 'label': a numpy bool array of shape (11, 480, 640) containing instance segmentation for objects in the scene
+ - 'bbx': a numpy float64 array of shape (10, 4) containing (x, y, w, h) coordinates of object bounding boxes
+ - 'RTs': a numpy float64 array of shape (10, 3, 4) containing homogeneous transformation matrices per object into camera coordinate frame
+ - 'centermaps': a numpy float64 array of shape (30, 480, 640) containing (dx, dy, z) coordinates to each object's centroid 
+ - 'centers': a numpy float64 array of shape (10, 2) containing (x, y) coordinates of object centroids projected to image plane 
+ 
+This dataset assumes that the upper left of the image is the origin point (0, 0).
 
-### Image Feature Extraction
+![](./img/dataset.png)
 
-The first essential component in an image captioning model is an encoder that inputs an image and produces features for decoding the caption.
-Here, we use a small [RegNetX-400MF](https://pytorch.org/vision/stable/models.html#torchvision.models.regnet_x_400mf) as the backbone so we can train in reasonable time..
+### Backbone and Feature Extraction Branch
 
-It accepts image batches of shape `(B, C, H, W)` and outputs spatial features from final layer that have shape `(B, C, H/32, W/32)`.
-For vanilla RNN and LSTM, we use the average pooled features (shape `(B, C)`) for decoding captions, whereas for attention LSTM we aggregate the spatial features by learning attention weights.
-Checkout the `ImageEncoder` method in `rnn_lstm_captioning.py` to see the initialization of the model.
+In this project, we'll use [torchvision's](https://pytorch.org/vision/stable/index.html) pretrained convolutional networks for our backbone convolutional feature extractor. Specifically, we use the [VGG16 model](https://arxiv.org/abs/1409.1556) as our feature extractor.
 
-We use the implementation from torchvision and put a very thin wrapper module for our use-case.
 
-### Word embedding
-In deep learning systems, we commonly represent words using vectors. Each word of the vocabulary will be associated with a vector, and these vectors will be learned jointly with the rest of the system.
+### Segmentation Branch
 
-### Temporal Softmax loss
+This branch should fuse information from the feature extractor (`feature1` and `feature2`) according to the architecture diagram of PoseCNN. Specifically, the network will pass both outputs from the feature extractor through a 1x1 convolution+ReLU layer followed by interpolation and an element wise addition. Next these intermediate features are interpolated back to the input image size followed by a final 1x1 convolution+ReLU layer to predict a probability for each class or background at each pixel.
 
-In an RNN language model, at every timestep we produce a score for each word in the vocabulary.
-This score is obtained by applying an affine transform to the hidden state (think `nn.Linear` module).
-We know the ground-truth word at each timestep, so we use a cross-entropy loss at each timestep.
-We sum the losses over time and average them over the minibatch.
+![](./img/instance_seg.png)
 
-However there is one wrinkle: since we operate over minibatches and different captions may have different lengths, we append `<NULL>` tokens to the end of each caption so they all have the same length. We don't want these `<NULL>` tokens to count toward the loss or gradient, so in addition to scores and ground-truth labels our loss function also accepts a `ignore_index` that tells it which index in caption should be ignored when computing the loss.
+### Translation Branch
 
-### Captioning Module
+Now that we have our feature extractor and instance segmentation implemented there is the translation branch, which follows a similar embedding structure as the instance segmentation.
 
-Finally we wrapped everything into the captioning module.
-This modoule will have a generic structure for RNN, LST, and attention-based LSTM -- which we control by providing `cell_type` argument (one of `["rnn", "lstm", "attn"]`).
+### Rotation Branch
 
-### Image Captioning with LSTMs
+Now, the final module of PoseCNN: the rotation branch. This portion of PoseCNN will be reminiscient of fasterRCNN in that we will predict a quaternion for each possible class at each region of interest detected by our preceeding segmentation branch. To do this, we used ROIPooling for feature extraction.
 
-**LSTM** stands for [Long-Short Term Memory Networks](https://www.researchgate.net/publication/13853244_Long_Short-term_Memory), a variant of vanilla Recurrent Neural Networks.
-Vanilla RNNs can be tough to train on long sequences due to vanishing and exploding gradients caused by repeated matrix multiplication.
-LSTMs solve this problem by replacing the simple update rule of the vanilla RNN with a gating mechanism.
+### Hough Voting Layer
 
-**LSTM Update Rule:** Similar to the vanilla RNN, at each timestep we receive an input $x_t\in\mathbb{R}^D$ and the previous hidden state $h_{t-1}\in\mathbb{R}^H$; the LSTM also maintains an $H$-dimensional *cell state*, so we also receive the previous cell state $c_{t-1}\in\mathbb{R}^H$. The learnable parameters of the LSTM are an *input-to-hidden* matrix $W_x\in\mathbb{R}^{4H\times D}$, a *hidden-to-hidden* matrix $W_h\in\mathbb{R}^{4H\times H}$ and a *bias vector* $b\in\mathbb{R}^{4H}$.
+One important piece of the PoseCNN architecture for inference time is a Hough voting layer. As described in the text, and illustrated below, a Hough voting layer is used during inference time to extract a single centroid prediction from the translation maps produced by `TranslationBranch` and the segments produced by `SegmentationBranch`.
 
-At each timestep we first compute an *activation vector* $a\in\mathbb{R}^{4H}$ as $a=W_xx_t + W_hh_{t-1}+b$. We then divide this into four vectors $a_i,a_f,a_o,a_g\in\mathbb{R}^H$ where $a_i$ consists of the first $H$ elements of $a$, $a_f$ is the next $H$ elements of $a$, etc. We then compute the *input gate* $g\in\mathbb{R}^H$, *forget gate* $f\in\mathbb{R}^H$, *output gate* $o\in\mathbb{R}^H$ and *block input* $g\in\mathbb{R}^H$ as
-
-$$
-\begin{align*}
-i = \sigma(a_i) \hspace{2pc}
-f = \sigma(a_f) \hspace{2pc}
-o = \sigma(a_o) \hspace{2pc}
-g = \tanh(a_g)
-\end{align*}
-$$
-
-where $\sigma$ is the sigmoid function and $\tanh$ is the hyperbolic tangent, both applied elementwise.
-
-Finally we compute the next cell state $c_t$ and next hidden state $h_t$ as
-
-$$
-c_{t} = f\odot c_{t-1} + i\odot g \hspace{4pc}
-h_t = o\odot\tanh(c_t)
-$$
-
-where $\odot$ is the elementwise product of vectors.
-
-### Attention LSTM
-Attention LSTM essentially adds an attention input $x_{attn}^t\in\mathbb{R}^H$ into LSTM, along with $x_t\in\mathbb{R}^D$ and the previous hidden state $h_{t-1}\in\mathbb{R}^H$.
-
-To get the attention input $x_{attn}^t$, here we adopt a method called `scaled dot-product attention`, as covered in the lecture. We first project the CNN feature activation from $\mathbb{R}^{400\times4\times4}$ to $\mathbb{R}^{H\times4\times4}$ using an affine layer. Given the projected activation $A\in \mathbb{R}^{H\times4\times4}$ and the LSTM hidden state from the previous time step $h_{t-1}$, we formuate the attention weights on $A$ at time step $t$ as $M_{attn}^t=h_{t-1}A/\sqrt{H} \in \mathbb{R}^{4\times4}$.
-
-To simplify the formuation here, we flatten the spatial dimensions of $A$ and $M_{attn}^t$ which gives $\tilde{A}\in \mathbb{R}^{H\times16}$ and $\tilde{M^t}_{attn}=h_{t-1}A\in \mathbb{R}^{16}$.
-We add a **`softmax`** activation function on $\tilde{M^t}_{attn}$ so that the attention weights at each time step are normalized and sum up to one.
-
-The attention embedding given the attention weights is then $x_{attn}^t=\tilde{A}\tilde{M^t}_{attn} \in\mathbb{R}^H$.
-
-* **Scaled dot-product attention**.
-Given the LSTM hidden state from the previous time step `prev_h` (or $h_{t-1}$) and the projected CNN feature activation `A`, the attention weights `attn_weights` (or $\tilde{M^t}_{attn}$ with a reshaping to $\mathbb{R}^{4\times4}$) attention embedding output `attn` (or $x_{attn}^t$) is computed using the formulation we provided.
-
-Hence, at each timestep the *activation vector* $a\in\mathbb{R}^{4H}$ in LSTM cell is formulated as:
-
-$a=W_xx_t + W_hh_{t-1}+W_{attn}x_{attn}^t+b$.
+![hough](https://deeprob.org/assets/images/posecnn_hough.png)
