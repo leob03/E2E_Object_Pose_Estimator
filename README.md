@@ -1,7 +1,10 @@
 # End to End Object Pose Estimator
 Implementation of an end-to-end object pose estimator, based on PoseCNN, which consists of two stages - feature extraction with a backbone network and pose estimation represented by instance segmentation, 3D translation estimation, and 3D rotation estimation.
 
-![](./gif/results.gif)
+<p align="center">
+  <img src="./gif/results.gif" alt="Image Description" width="400" height="300">
+</p>
+
 
 # Contents
 
@@ -24,7 +27,9 @@ Implementation of an end-to-end object pose estimator, based on PoseCNN, which c
 In this project, we implemented an **end-to-end** object pose estimator, based on [PoseCNN](https://arxiv.org/abs/1711.00199), which consists of two stages - feature extraction with a backbone network and pose estimation represented by instance segmentation, 3D translation estimation, and 3D rotation estimation.
 We will train it to estimate the pose of a set of object classes and evaluate the estimation accuracy.
 
-![](./img/pose_image.png)
+<p align="center">
+  <img src="./img/pose_image.png" alt="Image Description" width="600" height="400">
+</p>
 
 
 # Concepts
@@ -95,7 +100,9 @@ This dataset will format each sample from the dataset as a dictionary containing
  
 This dataset assumes that the upper left of the image is the origin point (0, 0).
 
-![](./img/dataset.png)
+<p align="center">
+  <img src="./img/dataset.png" alt="Image Description" width="700" height="500">
+</p>
 
 ### Backbone and Feature Extraction Branch
 
@@ -106,7 +113,10 @@ In this project, we'll use [torchvision's](https://pytorch.org/vision/stable/ind
 
 This branch should fuse information from the feature extractor (`feature1` and `feature2`) according to the architecture diagram of PoseCNN. Specifically, the network will pass both outputs from the feature extractor through a 1x1 convolution+ReLU layer followed by interpolation and an element wise addition. Next these intermediate features are interpolated back to the input image size followed by a final 1x1 convolution+ReLU layer to predict a probability for each class or background at each pixel.
 
-![](./img/instance_seg.png)
+<p align="center">
+  <img src="./img/instance_seg.png" alt="Image Description" width="600" height="400">
+</p>
+
 
 ### Translation Branch
 
@@ -120,4 +130,6 @@ Now, the final module of PoseCNN: the rotation branch. This portion of PoseCNN w
 
 One important piece of the PoseCNN architecture for inference time is a Hough voting layer. As described in the text, and illustrated below, a Hough voting layer is used during inference time to extract a single centroid prediction from the translation maps produced by `TranslationBranch` and the segments produced by `SegmentationBranch`.
 
-![hough](https://deeprob.org/assets/images/posecnn_hough.png)
+<p align="center">
+  <img src="https://deeprob.org/assets/images/posecnn_hough.png" alt="Image Description" width="600" height="400">
+</p>
