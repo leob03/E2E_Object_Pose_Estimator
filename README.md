@@ -71,7 +71,7 @@ I only tested this code with Ubuntu 20.04, but I tried to make it as generic as 
 
 1. **Get the code.** `$ git clone` the repo and install the Python dependencies
 2. **Train the models.** Run the training `$ train.py` and wait. You'll see that the learning code writes checkpoints into `cv/` and periodically print its status. 
-3. **Evaluate the models checkpoints and Visualize the predictions.** To evaluate a checkpoint from `checkpoints/`, run the scripts `$ python test.py` and pass it the path to a checkpoint ( by adding --checkpoint /path/to/the/checkpoint after your python command).
+3. **Evaluate the models checkpoints and Visualize the predictions.** To evaluate a checkpoint run the scripts `$ python test.py` and pass it the path to a checkpoint (by modifying the checkpoint in the code, default: posecnn_model.pth).
 
 # Deeper dive into the code
 
