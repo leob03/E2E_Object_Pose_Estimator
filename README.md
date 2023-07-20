@@ -79,13 +79,13 @@ I only tested this code with Ubuntu 20.04, but I tried to make it as generic as 
 
 In order to train and evaluate object pose estimation models, we need a dataset where each image is annotated with a *set* of *pose labels*, where each pose label gives the 3DoF position and 3DoF orientation of some object in the image.
 
-We will use the [PROPS Pose](https://deeprob.org/datasets/props-pose/) dataset, which provides annotations of this form. 
+We used the [PROPS Pose](https://deeprob.org/datasets/props-pose/) dataset, which provides annotations of this form. 
 Our PROPS Detection dataset is much smaller than typical benchmarking pose estimation datasets, and thus easier to manage.
 PROPS comprises annotated bounding boxes for 10 object classes:
 `["master_chef_can", "cracker_box", "sugar_box", "tomato_soup_can", "mustard_bottle", "tuna_fish_can", "gelatin_box", "potted_meat_can", "mug", "large_marker"]`.
 The choice of these objects is inspired by the [YCB object and Model set](https://ieeexplore.ieee.org/document/7251504) commonly used in robotic perception models.
 
-We create a [`PyTorch Dataset`](https://pytorch.org/docs/stable/data.html#torch.utils.data.Dataset) class named `PROPSPoseDataset` in `utils/PROPSPoseDataset.py` that will download the PROPS Pose dataset. 
+We created a [`PyTorch Dataset`](https://pytorch.org/docs/stable/data.html#torch.utils.data.Dataset) class named `PROPSPoseDataset` in `utils/PROPSPoseDataset.py` that will download the PROPS Pose dataset. 
 
 This dataset will format each sample from the dataset as a dictionary containing the following keys:
 
@@ -106,12 +106,12 @@ This dataset assumes that the upper left of the image is the origin point (0, 0)
 
 ### Backbone and Feature Extraction Branch
 
-In this project, we'll use [torchvision's](https://pytorch.org/vision/stable/index.html) pretrained convolutional networks for our backbone convolutional feature extractor. Specifically, we use the [VGG16 model](https://arxiv.org/abs/1409.1556) as our feature extractor.
+In this project, we used [torchvision's](https://pytorch.org/vision/stable/index.html) pretrained convolutional networks for our backbone convolutional feature extractor. Specifically, we used the [VGG16 model](https://arxiv.org/abs/1409.1556) as our feature extractor.
 
 
 ### Segmentation Branch
 
-This branch should fuse information from the feature extractor (`feature1` and `feature2`) according to the architecture diagram of PoseCNN. Specifically, the network will pass both outputs from the feature extractor through a 1x1 convolution+ReLU layer followed by interpolation and an element wise addition. Next these intermediate features are interpolated back to the input image size followed by a final 1x1 convolution+ReLU layer to predict a probability for each class or background at each pixel.
+This branch should fuse information from the feature extractor (`feature1` and `feature2`) according to the architecture diagram of PoseCNN. Specifically, the network passes both outputs from the feature extractor through a 1x1 convolution+ReLU layer followed by interpolation and an element wise addition. Next these intermediate features are interpolated back to the input image size followed by a final 1x1 convolution+ReLU layer to predict a probability for each class or background at each pixel.
 
 <p align="center">
   <img src="./img/instance_seg.png" alt="Image Description" width="600" height="400">
@@ -128,7 +128,7 @@ Now, the final module of PoseCNN: the rotation branch. This portion of PoseCNN w
 
 ### Hough Voting Layer
 
-One important piece of the PoseCNN architecture for inference time is a Hough voting layer. As described in the text, and illustrated below, a Hough voting layer is used during inference time to extract a single centroid prediction from the translation maps produced by `TranslationBranch` and the segments produced by `SegmentationBranch`.
+One important piece of the PoseCNN architecture for inference time is a Hough voting layer. As  illustrated below, a Hough voting layer is used during inference time to extract a single centroid prediction from the translation maps produced by `TranslationBranch` and the segments produced by `SegmentationBranch`.
 
 <p align="center">
   <img src="https://deeprob.org/assets/images/posecnn_hough.png" alt="Image Description" width="600" height="400">
