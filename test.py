@@ -33,6 +33,11 @@ NUM_WORKERS = multiprocessing.cpu_count()
 path = os.getcwd()
 PATH = os.path.join(path)
 
+if torch.cuda.is_available():
+    DEVICE = torch.device("cuda")
+else:
+    DEVICE = torch.device("cpu")
+
 from utils import PROPSPoseDataset
 import utils
 
