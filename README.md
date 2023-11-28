@@ -127,5 +127,5 @@ Now, the final module of PoseCNN: the rotation branch. This portion of PoseCNN w
 One important piece of the PoseCNN architecture for inference time is a Hough voting layer. As  illustrated below, a Hough voting layer is used during inference time to extract a single centroid prediction from the translation maps produced by `TranslationBranch` and the segments produced by `SegmentationBranch`.
 
 <p align="center">
-  <img src="https://deeprob.org/assets/images/posecnn_hough.png" alt="Image Description" width="600" height="400">
+  <img src="./img/hough.png" alt="Image Description" width="550" height="400">
 </p>
