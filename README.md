@@ -5,6 +5,9 @@ Implementation of an end-to-end object pose estimator, based on PoseCNN, which c
   <img src="./gif/results.gif" alt="Image Description" width="400" height="300">
 </p>
 
+<p align="center">
+  <img src="./img/posecnn.png" alt="Image Description" width="400" height="240">
+</p>
 
 # Contents
 
