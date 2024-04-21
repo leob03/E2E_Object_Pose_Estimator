@@ -58,7 +58,7 @@ This architecture is designed to take an RGB color image as input and produce a 
 The architecture is shown in more detail from Figure 2 of the [PoseCNN paper](https://arxiv.org/abs/1711.00199):
 
 <p align="center">
-  <img src="./img/dataset.png" alt="Image Description" width="700" height="500">
+  <img src="./img/arch.png" alt="Image Description" width="750" height="500">
 </p>
 
 Now, we will implement a variant of this architecture that performs each of the 5 operations using PyTorch and data from our `PROPSPoseDataset`.
