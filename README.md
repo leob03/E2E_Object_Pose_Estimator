@@ -26,7 +26,7 @@ Implementation of an end-to-end object pose estimator, based on PoseCNN, which c
 
 # Objective
 
-** To estimate the 3D translation of an object by localizing its center in the image and predicting its distance from the camera.**
+**To estimate the 3D translation of an object by localizing its center in the image and predicting its distance from the camera.**
 
 In this project, we implemented an **end-to-end** object pose estimator, based on [PoseCNN](https://arxiv.org/abs/1711.00199), which consists of two stages - feature extraction with a backbone network and pose estimation represented by instance segmentation, 3D translation estimation, and 3D rotation estimation.
 We will train it to estimate the pose of a set of object classes and evaluate the estimation accuracy.
